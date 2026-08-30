@@ -2,20 +2,22 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, getDocs, deleteDoc, getDoc } from "firebase/firestore";
+import { useParams, useRouter } from "next/navigation";
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, getDocs, deleteDoc, getDoc, limit } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import ReactMarkdown from "react-markdown";
 import gsap from "gsap";
-import { LogOut, MessageSquare, Send, Plus, Menu, X, Loader2, User as UserIcon, Trash2, Settings, AlertCircle, Copy, Edit2, Check, Folder } from "lucide-react";
+import { LogOut, MessageSquare, Send, Plus, Menu, X, Loader2, User as UserIcon, Trash2, Settings, AlertCircle, Copy, Edit2, Check, Folder, ArrowLeft } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "");
 
-export default function ChatPage() {
+export default function ProjectChatPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const projectId = params.projectId as string;
 
   const [chats, setChats] = useState<any[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -48,11 +50,11 @@ export default function ChatPage() {
 
   // Load messages for the current chat
   useEffect(() => {
-    if (!user || !currentChatId || currentChatId === "new") {
+    if (!user || !currentChatId || currentChatId === "new" || !projectId) {
       setMessages([]);
       return;
     }
-    const q = query(collection(db, `users/${user.uid}/chats/${currentChatId}/messages`), orderBy("createdAt", "asc"));
+    const q = query(collection(db, `users/${user.uid}/projects/${projectId}/chats/${currentChatId}/messages`), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -110,7 +112,7 @@ export default function ChatPage() {
       let chatId = currentChatId;
       // If no active chat, create one
       if (!chatId || chatId === "new") {
-        const newChatRef = await addDoc(collection(db, `users/${user.uid}/chats`), {
+        const newChatRef = await addDoc(collection(db, `users/${user.uid}/projects/${projectId}/chats`), {
           title: userMessage.substring(0, 30) + (userMessage.length > 30 ? "..." : ""),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -118,27 +120,50 @@ export default function ChatPage() {
         chatId = newChatRef.id;
         setCurrentChatId(chatId);
       } else if (messages.length === 0) {
-         await updateDoc(doc(db, `users/${user.uid}/chats/${chatId}`), {
+         await updateDoc(doc(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}`), {
            title: userMessage.substring(0, 30) + (userMessage.length > 30 ? "..." : ""),
            updatedAt: serverTimestamp(),
          });
       }
 
       // Add user message to Firestore
-      await addDoc(collection(db, `users/${user.uid}/chats/${chatId}/messages`), {
+      await addDoc(collection(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}/messages`), {
         text: userMessage,
         role: "user",
         createdAt: serverTimestamp(),
       });
 
       // Update chat updatedAt
-      await updateDoc(doc(db, `users/${user.uid}/chats/${chatId}`), {
+      await updateDoc(doc(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}`), {
         updatedAt: serverTimestamp(),
       });
 
+      // Gather cross-chat context for the project
+      let contextBlocks = [];
+      try {
+        for (const chat of chats) {
+          if (chat.id === chatId) continue;
+          const msgsQ = query(collection(db, `users/${user.uid}/projects/${projectId}/chats/${chat.id}/messages`), orderBy("createdAt", "desc"), limit(5));
+          const msgsSnap = await getDocs(msgsQ);
+          if (!msgsSnap.empty) {
+            const msgs = msgsSnap.docs.map(d => d.data()).reverse();
+            contextBlocks.push(`Chat Topic: ${chat.title}\n` + msgs.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n"));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to gather project context", e);
+      }
+      
+      const systemContext = contextBlocks.length > 0 
+        ? `You are an AI assistant in a unified project workspace. The user might refer to things from other chats in this project. Here is recent context from other chats:\n\n${contextBlocks.join('\n\n---\n\n')}\n\nUse this context if relevant, but answer the user's latest prompt directly.` 
+        : `You are a helpful AI assistant.`;
+
       // Call Gemini API
       const dynamicGenAI = new GoogleGenerativeAI(apiKey);
-      const model = dynamicGenAI.getGenerativeModel({ model: "gemini-flash-latest" });
+      const model = dynamicGenAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: systemContext
+      });
       
       // Build history
       const history = messages.map(m => ({
@@ -160,13 +185,13 @@ export default function ChatPage() {
       localStorage.setItem('gemini_usage_history', JSON.stringify(filteredHistory));
 
       // Add AI response to Firestore
-      await addDoc(collection(db, `users/${user.uid}/chats/${chatId}/messages`), {
+      await addDoc(collection(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}/messages`), {
         text: responseText,
         role: "ai",
         createdAt: serverTimestamp(),
       });
 
-      await updateDoc(doc(db, `users/${user.uid}/chats/${chatId}`), {
+      await updateDoc(doc(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}`), {
         updatedAt: serverTimestamp(),
       });
 
@@ -174,7 +199,7 @@ export default function ChatPage() {
       console.error("Failed to send message:", error);
       // Fallback message for error
       if (chatId) {
-         await addDoc(collection(db, `users/${user.uid}/chats/${chatId}/messages`), {
+         await addDoc(collection(db, `users/${user.uid}/projects/${projectId}/chats/${chatId}/messages`), {
           text: "Sorry, I encountered an error. Please try again.",
           role: "ai",
           createdAt: serverTimestamp(),
@@ -202,6 +227,7 @@ export default function ChatPage() {
         toggleSidebar={toggleSidebar}
         currentChatId={currentChatId}
         setCurrentChatId={setCurrentChatId}
+        projectId={projectId}
       />
 
       {/* Main Chat Area */}
