@@ -218,9 +218,9 @@ export default function SettingsPage() {
         toggleSidebar={toggleSidebar}
         isDashboard={true}
       />
-      <main ref={mainRef} className="flex-1 relative overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+      <main ref={mainRef} className="flex-1 relative overflow-y-auto flex flex-col">
         {/* Mobile Header */}
-        <header className="md:hidden w-full flex items-center justify-between mb-6">
+        <header className="md:hidden w-full flex items-center justify-between p-4 mb-2">
           <button onClick={toggleSidebar} className="text-neutral-400 hover:text-white">
             <Menu className="w-6 h-6" />
           </button>
@@ -230,16 +230,8 @@ export default function SettingsPage() {
 
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-blue-600/5 blur-[120px] pointer-events-none rounded-full" />
         
-        <div className="w-full max-w-4xl z-10 flex-1 flex flex-col justify-center">
-          <button 
-            onClick={() => router.push("/")}
-            className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-6 group hidden md:flex"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Chat</span>
-        </button>
-
-        <div ref={containerRef} className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+        <div className="w-full z-10 flex-1 flex flex-col">
+          <div ref={containerRef} className="bg-neutral-900 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row flex-1">
           
           {/* Sidebar Tabs */}
           <div className="w-full md:w-64 bg-neutral-950/50 border-b md:border-b-0 md:border-r border-neutral-800 p-4 space-y-2 flex md:flex-col overflow-x-auto md:overflow-x-visible">

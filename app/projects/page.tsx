@@ -129,31 +129,33 @@ export default function ProjectsDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {/* Create New Project Card */}
-          <div className="bg-neutral-900/50 border border-neutral-800 border-dashed rounded-2xl p-6 flex flex-col justify-center items-center hover:bg-neutral-900 transition-colors h-[200px]">
-            <form onSubmit={handleCreateProject} className="w-full flex flex-col items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-500">
-                <Folder className="w-6 h-6" />
+        {/* Create New Project Form */}
+        <div className="bg-neutral-900/50 border border-neutral-800 border-dashed rounded-2xl p-6 mb-8 transition-colors">
+          <form onSubmit={handleCreateProject} className="w-full flex flex-col md:flex-row items-center gap-4">
+            <div className="flex-1 w-full relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-500">
+                <Folder className="w-5 h-5" />
               </div>
               <input 
                 type="text" 
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="New project name..."
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 text-center text-white"
+                placeholder="Enter new project name..."
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
-              <button 
-                type="submit"
-                disabled={!newProjectName.trim() || isCreating}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                {isCreating ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> : <Plus className="w-4 h-4" />}
-                Create Project
-              </button>
-            </form>
-          </div>
+            </div>
+            <button 
+              type="submit"
+              disabled={!newProjectName.trim() || isCreating}
+              className="w-full md:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+            >
+              {isCreating ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> : <Plus className="w-4 h-4" />}
+              Create Project
+            </button>
+          </form>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {/* Project List */}
           {projects.map((project) => (
             <div 
